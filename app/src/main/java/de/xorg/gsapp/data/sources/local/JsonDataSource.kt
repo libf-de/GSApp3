@@ -106,7 +106,7 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
         }
     }
 
-    override suspend fun storeTeachers(value: List<Subject>) {
+    override suspend fun storeTeachers(value: List<Teacher>) {
         return withContext(Dispatchers.IO) {
             gson.toJson(value, FileWriter(teachersFile))
         }

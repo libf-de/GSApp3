@@ -32,7 +32,7 @@ interface LocalDataSource {
     suspend fun loadSubjects(): Result<List<Subject>>
     suspend fun storeSubjects(value: List<Subject>)
     suspend fun loadTeachers(): Result<List<Teacher>>
-    suspend fun storeTeachers(value: List<Subject>)
+    suspend fun storeTeachers(value: List<Teacher>)
 
     suspend fun loadFoodPlan(): Result<FoodOfferSet>
     suspend fun storeFoodPlan(value: FoodOfferSet)
