@@ -19,7 +19,7 @@
 package de.xorg.gsapp.data.repositories
 
 import de.xorg.gsapp.data.model.Additive
-import de.xorg.gsapp.data.model.FoodOfferSet
+import de.xorg.gsapp.data.model.FoodOffer
 import de.xorg.gsapp.data.model.Subject
 import de.xorg.gsapp.data.model.SubstitutionSet
 import de.xorg.gsapp.data.model.Teacher
@@ -135,7 +135,7 @@ class AppRepository(
         return Result.success(success)
     }
 
-    val foodPlan: Flow<Result<FoodOfferSet>> = flow {
+    val foodPlan: Flow<Result<List<FoodOffer>>> = flow {
         val cached = jsonDataSource.loadFoodPlan()
         if(cached.isSuccess) emit(cached)
 

@@ -34,8 +34,8 @@ interface LocalDataSource {
     suspend fun loadTeachers(): Result<List<Teacher>>
     suspend fun storeTeachers(value: List<Teacher>)
 
-    suspend fun loadFoodPlan(): Result<FoodOfferSet>
-    suspend fun storeFoodPlan(value: FoodOfferSet)
+    suspend fun loadFoodPlan(): Result<List<FoodOffer>>
+    suspend fun storeFoodPlan(value: List<FoodOffer>)
     suspend fun loadAdditives(): Result<List<Additive>>
     suspend fun storeAdditives(value: List<Additive>)
 }

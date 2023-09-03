@@ -20,8 +20,9 @@ package de.xorg.gsapp.data.model
 
 import java.util.Date
 
-@Deprecated(message="Use FoodOfferSet instead")
 data class FoodOffer(
+    val dataFromDate: Date,
+    val dataTillDate: Date,
     val date: Date,
     val foods: List<Food>
 )

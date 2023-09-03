@@ -112,13 +112,13 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
         }
     }
 
-    override suspend fun loadFoodPlan(): Result<FoodOfferSet> {
+    override suspend fun loadFoodPlan(): Result<List<FoodOffer>> {
         return if(foodplanFile.exists()) {
             try {
                 Result.success(withContext(Dispatchers.IO) {
                     gson.fromJson(
                         FileReader(foodplanFile),
-                        object : TypeToken<FoodOfferSet>() {}.type
+                        object : TypeToken<List<FoodOffer>>() {}.type
                     )
                 })
             } catch (ex: Exception) {
@@ -129,7 +129,7 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
         }
     }
 
-    override suspend fun storeFoodPlan(value: FoodOfferSet) {
+    override suspend fun storeFoodPlan(value: List<FoodOffer>) {
         return withContext(Dispatchers.IO) {
             gson.toJson(value, FileWriter(foodplanFile))
         }

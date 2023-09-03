@@ -30,6 +30,6 @@ interface RemoteDataSource {
     suspend fun loadSubjects(): Result<List<Subject>>
     suspend fun loadTeachers(): Result<List<Teacher>>
 
-    suspend fun loadFoodPlan(): Result<FoodOfferSet>
+    suspend fun loadFoodPlan(): Result<List<FoodOffer>>
     suspend fun loadAdditives(): Result<List<Additive>>
 }

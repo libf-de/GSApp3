@@ -37,6 +37,7 @@ import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.io.IOException
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -361,7 +362,7 @@ class GsWebsiteDataSource : RemoteDataSource {
         return loadTeachersPage(1, true)
     }
 
-    override suspend fun loadFoodPlan(): Result<FoodOfferSet> {
+    override suspend fun loadFoodPlan(): Result<List<FoodOffer>> {
         val foods = mutableMapOf<String, MutableList<Food>>()
         try {
             val b: OkHttpClient.Builder = OkHttpClient.Builder()
@@ -379,32 +380,37 @@ class GsWebsiteDataSource : RemoteDataSource {
                     val doc = Jsoup.parse(response.body!!.string())
                     doc.select("sup").remove()
                     val currentDates = doc.select("button#time-selector-dropdown")
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                     val kw = currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
                         .toTypedArray()[0].replace("[\\D]".toRegex(), "").toInt()
                     if (kw < 0 || kw > 53) {
                         Log.w(TAG, "Parsed KW \"$kw\" is probably invalid")
                     }
                     Log.d(TAG, "NewEP::KW=$kw")
-                    val dateFrom = currentDates.text()
-                        .split("\\|\\|".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[1]
-                        .split("-".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[0]
-                        .trim { it <= ' ' } +
-                            currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
+                    val dateFrom: Date = sdf.parse(
+                        currentDates.text()
+                            .split("\\|\\|".toRegex())
+                            .dropLastWhile { it.isEmpty() }
+                            .toTypedArray()[1]
+                            .split("-".toRegex())
+                            .dropLastWhile { it.isEmpty() }
+                            .toTypedArray()[0]
+                            .trim { it <= ' ' } +
+                                currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
                                 .toTypedArray()[1].split("\\.".toRegex()).dropLastWhile { it.isEmpty() }
                                 .toTypedArray().last()
+                        )!!
 
-                    val dateTill = currentDates.text()
-                        .split("\\|\\|".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[1]
-                        .split("-".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[1]
-                        .trim { it <= ' ' }
+                    val dateTill: Date = sdf.parse(
+                            currentDates.text()
+                            .split("\\|\\|".toRegex())
+                            .dropLastWhile { it.isEmpty() }
+                            .toTypedArray()[1]
+                            .split("-".toRegex())
+                            .dropLastWhile { it.isEmpty() }
+                            .toTypedArray()[1]
+                            .trim { it <= ' ' }
+                        )!!
 
                     val tableElements = doc.select("table#menu-table_KW")
 
@@ -427,12 +433,22 @@ class GsWebsiteDataSource : RemoteDataSource {
                         }
                     }
 
-                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                    return Result.success(FoodOfferSet(
+
+                    return Result.success(
+                        foods.entries.map {
+                            FoodOffer(
+                                dataFromDate=dateFrom,
+                                dataTillDate=dateTill,
+                                date=sdf.parse(it.key),
+                                foods=it.value
+                            )
+                        }
+                    )
+                    /*return Result.success(FoodOfferSet(
                         fromDate=sdf.parse(dateFrom)!!,
                         tillDate=sdf.parse(dateTill)!!,
                         foodOfferings=foods.mapKeys { sdf.parse(it.key)!! }
-                    ) )
+                    ) )*/
                 } catch(ex: Exception) {
                     return Result.failure(ex);
                 }
