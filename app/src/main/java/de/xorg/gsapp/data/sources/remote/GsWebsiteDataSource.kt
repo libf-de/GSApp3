@@ -101,7 +101,7 @@ class GsWebsiteDataSource : RemoteDataSource {
             colNum = 0
             colIterator = curRowChilds.iterator()
             while (colIterator.hasNext() && colNum < 7) {
-                data[colNum] = (colIterator.next() as Element).text()
+                data[colNum] = (colIterator.next() as Element).text().trim()
                 colNum++
             }
             if (curRowChilds.html().contains("<strong>")) {
@@ -112,7 +112,7 @@ class GsWebsiteDataSource : RemoteDataSource {
                 klass = data[0],
                 lessonNr = data[1],
                 origSubject = data[2],
-                substName = data[3],
+                substTeacher = data[3],
                 substRoom = data[4],
                 substSubject = data[5],
                 notes = data[6],
@@ -209,13 +209,13 @@ class GsWebsiteDataSource : RemoteDataSource {
                         counter = 1
                         substitutions.add(
                             Substitution(
-                                klass = klasse,
-                                lessonNr = stunde,
-                                origSubject = orgfach,
-                                substName = vertret,
-                                substRoom = raum,
-                                substSubject = verfach,
-                                notes = str,
+                                klass = klasse.trim(),
+                                lessonNr = stunde.trim(),
+                                origSubject = orgfach.trim(),
+                                substTeacher = vertret.trim(),
+                                substRoom = raum.trim(),
+                                substSubject = verfach.trim(),
+                                notes = str.trim(),
                                 isNew = false
                             )
                         )
