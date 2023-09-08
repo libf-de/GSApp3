@@ -24,4 +24,6 @@ data class Subject(
     val shortName: String,
     val longName: String,
     val color: Color
-)
+) {
+    constructor(shortName: String) : this(shortName, shortName, Color.Magenta)
+}

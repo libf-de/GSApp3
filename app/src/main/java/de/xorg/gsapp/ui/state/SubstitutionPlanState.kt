@@ -16,15 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package de.xorg.gsapp.data.model
+package de.xorg.gsapp.ui.state
 
-data class Substitution(
-    val klass: String,
-    val lessonNr: String,
-    val origSubject: String,
-    val substTeacher: String,
-    val substRoom: String,
-    val substSubject: String,
-    val notes: String,
-    val isNew: Boolean
+import de.xorg.gsapp.data.model.Substitution
+import de.xorg.gsapp.data.model.SubstitutionDisplay
+
+data class SubstitutionPlanState(
+    var subState: UiState = UiState.EMPTY,
+    val subDate: String = "",
+    val subNotes: String = "",
+    val subList: List<SubstitutionDisplay> = listOf()
 )

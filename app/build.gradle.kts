@@ -68,15 +68,33 @@ android {
 }
 
 dependencies {
+    implementation("com.google.android.material:material:1.9.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
     val room_version = "2.5.2"
+    val ktor_version = "2.3.4"
 
     implementation("androidx.room:room-runtime:$room_version")
     annotationProcessor("androidx.room:room-compiler:$room_version")
 
     implementation("androidx.room:room-ktx:$room_version")
+
+    implementation("org.kodein.di:kodein-di-framework-compose:7.19.0")
+    implementation("org.kodein.di:kodein-di-framework-android-x:7.19.0")
+
     implementation("org.jsoup:jsoup:1.16.1")
-    implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("com.google.code.gson:gson:2.10.1")
+
+    implementation("io.ktor:ktor-client-core:$ktor_version")
+    implementation("io.ktor:ktor-client-cio:$ktor_version")
+
+    implementation("com.squareup.okhttp3:okhttp:4.10.0")
+
+
+    // For Tabs and Stuff
+    implementation("com.google.accompanist:accompanist-pager:0.28.0")
+    // If using indicators, also depend on
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.28.0")
+    implementation("com.google.accompanist:accompanist-navigation-animation:0.28.0")
 
     implementation("androidx.core:core-ktx:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")

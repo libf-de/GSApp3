@@ -18,4 +18,29 @@
 
 package de.xorg.gsapp.data.model
 
-data class SubstitutionDisplay()
+data class SubstitutionDisplay(
+    val klass: String,
+    val lessonNr: String,
+    val origSubject: Subject,
+    val substTeacher: Teacher,
+    val substRoom: String,
+    val substSubject: Subject,
+    val notes: String,
+    val isNew: Boolean
+) {
+    constructor(primitive: Substitution,
+                origSubject: Subject,
+                substTeacher: Teacher,
+                substSubject: Subject) : this(
+                    klass = primitive.klass,
+                    lessonNr = primitive.lessonNr,
+                    origSubject = origSubject,
+                    substTeacher = substTeacher,
+                    substRoom = primitive.substRoom,
+                    substSubject = substSubject,
+                    notes = primitive.notes,
+                    isNew = primitive.isNew
+                ) {
+
+    }
+}

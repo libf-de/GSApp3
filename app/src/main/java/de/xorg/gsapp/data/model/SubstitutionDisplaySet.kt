@@ -18,5 +18,13 @@
 
 package de.xorg.gsapp.data.model
 
-class SubstitutionDisplaySet {
+data class SubstitutionDisplaySet(
+    val date: String,
+    val notes: String,
+    val substitutions: List<SubstitutionDisplay>
+) {
+    constructor() : this(
+        date = "",
+        notes = "",
+        substitutions = emptyList())
 }

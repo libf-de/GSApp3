@@ -18,5 +18,10 @@
 
 package de.xorg.gsapp.data.usecases
 
-class SubstitutionPlanUseCase {
+import de.xorg.gsapp.data.repositories.AppRepository
+
+class SubstitutionPlanUseCase(
+    private val repo: AppRepository
+) {
+
 }

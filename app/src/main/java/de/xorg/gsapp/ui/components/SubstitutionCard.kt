@@ -20,13 +20,10 @@ package de.xorg.gsapp.ui.components
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,40 +34,30 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.rounded.Face
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.graphics.toColor
 import com.google.android.material.color.MaterialColors
 import de.xorg.gsapp.R
-import de.xorg.gsapp.data.extensions.leftBorder
 import de.xorg.gsapp.data.model.Subject
 import de.xorg.gsapp.data.model.SubstitutionDisplay
 import de.xorg.gsapp.data.model.Teacher
@@ -90,8 +77,8 @@ fun SubstitutionCard(
         MaterialTheme.colorScheme.primary.toArgb())
     //val harmonizedColor = value.origSubject.color.toArgb()
 
-    //val farbe = MaterialColors.getColorRoles(LocalContext.current, harmonizedColor)
-    val farbe = MaterialColors.getColorRoles(harmonizedColor, false)
+    val farbe = MaterialColors.getColorRoles(LocalContext.current, harmonizedColor)
+    //val farbe = MaterialColors.getColorRoles(harmonizedColor, true)
     Card(modifier = Modifier
         .padding(horizontal = 16.dp, vertical = 4.dp)
         .height(70.dp),
@@ -189,7 +176,6 @@ fun SubstitutionCard(
                                 .wrapContentSize()
                         )
                     } else {
-
                         Icon(painterResource(R.drawable.smiley),
                             modifier = Modifier.size(32.dp),
                             tint = Color(farbe.onAccentContainer),

@@ -16,15 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package de.xorg.gsapp.data.model
+package de.xorg.gsapp
 
-data class Substitution(
-    val klass: String,
-    val lessonNr: String,
-    val origSubject: String,
-    val substTeacher: String,
-    val substRoom: String,
-    val substSubject: String,
-    val notes: String,
-    val isNew: Boolean
-)
+import android.app.Application
+import de.xorg.gsapp.data.di.mainModule
+import de.xorg.gsapp.data.di.repositoryModule
+import org.kodein.di.DI
+import org.kodein.di.DIAware
+import org.kodein.di.android.x.androidXModule
+
+class GSAppApplication : Application(), DIAware {
+    override val di: DI by DI.lazy {
+        import(androidXModule(this@GSAppApplication))
+        import(mainModule)
+        //import(repositoryModule) // Importiere das Repository-Modul
+
+    }
+}

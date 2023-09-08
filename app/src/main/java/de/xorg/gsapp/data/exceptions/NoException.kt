@@ -16,15 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package de.xorg.gsapp.data.model
+package de.xorg.gsapp.data.exceptions
 
-data class Substitution(
-    val klass: String,
-    val lessonNr: String,
-    val origSubject: String,
-    val substTeacher: String,
-    val substRoom: String,
-    val substSubject: String,
-    val notes: String,
-    val isNew: Boolean
-)
+class NoException : Exception("No exception")

@@ -18,22 +18,30 @@
 
 package de.xorg.gsapp.data.repositories
 
+import androidx.compose.ui.graphics.Color
 import de.xorg.gsapp.data.model.Additive
 import de.xorg.gsapp.data.model.FoodOffer
 import de.xorg.gsapp.data.model.Subject
+import de.xorg.gsapp.data.model.SubstitutionDisplay
+import de.xorg.gsapp.data.model.SubstitutionDisplaySet
 import de.xorg.gsapp.data.model.SubstitutionSet
 import de.xorg.gsapp.data.model.Teacher
 import de.xorg.gsapp.data.sources.local.JsonDataSource
 import de.xorg.gsapp.data.sources.remote.GsWebsiteDataSource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import java.util.Locale
 
 class AppRepository(
     private val webDataSource: GsWebsiteDataSource,
     private val jsonDataSource: JsonDataSource
 ) {
+    //TODO: Maybe use Mutex variables to cache objects here for write operations
+
     // Substitution functions
-    val substitutions: Flow<Result<SubstitutionSet>> = flow {
+    private val substitutions: Flow<Result<SubstitutionSet>> = flow {
         val cached = jsonDataSource.loadSubstitutionPlan()
         if(cached.isSuccess) emit(cached)
 
@@ -50,14 +58,62 @@ class AppRepository(
         emit(web)
     }
 
+    fun getSubstitutions(): Flow<Result<SubstitutionDisplaySet>> = combine(substitutions,
+        teachers, subjects) { subs, teachers, subjects ->
+        subs.map {
+            SubstitutionDisplaySet(
+                date = it.date,
+                notes = it.notes,
+                substitutions = it.substitutions.map { sub ->
+                    SubstitutionDisplay(
+                        primitive = sub,
+                        origSubject = subjects.getOrNull()?.firstOrNull {
+                                s -> s.shortName.lowercase() == sub.origSubject.lowercase()
+                        } ?: Subject(sub.origSubject),
+                        substTeacher = teachers.getOrNull()?.firstOrNull {
+                                tea -> tea.shortName.lowercase() == sub.substTeacher.lowercase()
+                        } ?: Teacher(sub.substTeacher),
+                        substSubject = subjects.getOrNull()?.firstOrNull {
+                                s -> s.shortName.lowercase() == sub.substSubject.lowercase()
+                        } ?: Subject(sub.substSubject)
+                    )
+                }
+            )
+        }
+    }
+
     val subjects: Flow<Result<List<Subject>>> = flow {
-        val local = jsonDataSource.loadSubjects()
+        val cached = jsonDataSource.loadSubjects()
+        if(cached.isSuccess) emit(cached)
+
+        val web = webDataSource.loadSubjects()
+        if(web.isSuccess) {
+            //TODO: Can I compare results directly?
+            if(cached.isSuccess)
+                if(cached.getOrNull() == web.getOrNull())
+                    return@flow
+            jsonDataSource.storeSubjects(web.getOrNull()!!)
+            emit(web)
+        } else if (cached.isSuccess) { return@flow }
+
+        emit(web)
+        /*val local = jsonDataSource.loadSubjects()
         if(local.isSuccess) {
             emit(local)
             return@flow
         }
 
-        emit(Result.failure(Exception("No valid DataSource :(")))
+        emit(Result.failure(Exception("No valid DataSource :(")))*/
+    }
+
+    suspend fun getSubjectByShort(value: String): Result<Subject> {
+        val subs = subjects.first()
+        if(subs.isFailure) return Result.failure(subs.exceptionOrNull()!!)
+
+
+        return Result.success(subs.getOrNull()!!.firstOrNull {
+            it.shortName.lowercase(Locale.getDefault()) == value.lowercase(Locale.getDefault())
+        } ?: Subject(value, value, Color.Magenta))
     }
 
     suspend fun addSubject(value: Subject): Result<Boolean> {
@@ -96,9 +152,10 @@ class AppRepository(
         if(web.isSuccess) {
             //TODO: Can I compare results directly?
             if(cached.isSuccess)
-                if(cached.getOrNull()!! == web.getOrNull()!!)
+                if(cached.getOrNull() == web.getOrNull())
                     return@flow
-            val mergedTeacherList = web.getOrNull()!! + cached.getOrNull()!!
+            val mergedTeacherList = (web.getOrNull() ?: emptyList()) +
+                    (cached.getOrNull() ?: emptyList())
             jsonDataSource.storeTeachers(mergedTeacherList)
             emit(Result.success(mergedTeacherList))
         } else if (cached.isSuccess) { return@flow }

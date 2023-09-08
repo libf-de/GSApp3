@@ -16,15 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package de.xorg.gsapp.data.model
+package de.xorg.gsapp.data.cache
 
-data class Substitution(
-    val klass: String,
-    val lessonNr: String,
-    val origSubject: String,
-    val substTeacher: String,
-    val substRoom: String,
-    val substSubject: String,
-    val notes: String,
-    val isNew: Boolean
-)
+import android.content.Context
+import java.io.File
+
+class AndroidCacheManager(private val context: Context) : CacheManager {
+    override fun getCacheDirectory(): File {
+        return context.cacheDir
+    }
+}

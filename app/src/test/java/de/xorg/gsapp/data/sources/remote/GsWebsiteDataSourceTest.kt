@@ -19,4 +19,10 @@
 package de.xorg.gsapp.data.sources.remote
 
 class GsWebsiteDataSourceTest {
+    @org.junit.jupiter.api.Test
+    fun testFetchSubstitutionPlan() {
+        val dataSource = GsWebsiteDataSource()
+
+        TODO("Not yet implemented")
+    }
 }

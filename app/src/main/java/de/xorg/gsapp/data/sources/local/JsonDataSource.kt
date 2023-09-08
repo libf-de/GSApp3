@@ -18,14 +18,13 @@
 
 package de.xorg.gsapp.data.sources.local
 
-import android.content.Context
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import de.xorg.gsapp.data.cache.CacheManager
 import de.xorg.gsapp.data.model.Additive
 import de.xorg.gsapp.data.model.FoodOffer
-import de.xorg.gsapp.data.model.FoodOfferSet
 import de.xorg.gsapp.data.model.Subject
-import de.xorg.gsapp.data.model.Substitution
 import de.xorg.gsapp.data.model.SubstitutionSet
 import de.xorg.gsapp.data.model.Teacher
 import kotlinx.coroutines.Dispatchers
@@ -34,14 +33,16 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileReader
 import java.io.FileWriter
+import java.io.IOException
 
-class JsonDataSource(private var context: Context) : LocalDataSource {
+
+class JsonDataSource(private val cacheManager: CacheManager) : LocalDataSource {
     private var gson = Gson()
-    private var substitutionsFile = File(context.applicationContext.cacheDir, "substitutions.json")
-    private var subjectsFile = File(context.applicationContext.cacheDir, "subjects.json")
-    private var teachersFile = File(context.applicationContext.cacheDir, "teachers.json")
-    private var foodplanFile = File(context.applicationContext.cacheDir, "foodplan.json")
-    private var additivesFile = File(context.applicationContext.cacheDir, "additives.json")
+    private var substitutionsFile = File(cacheManager.getCacheDirectory(), "substitutions.json")
+    private var subjectsFile = File(cacheManager.getCacheDirectory(), "subjects.json")
+    private var teachersFile = File(cacheManager.getCacheDirectory(), "teachers.json")
+    private var foodplanFile = File(cacheManager.getCacheDirectory(), "foodplan.json")
+    private var additivesFile = File(cacheManager.getCacheDirectory(), "additives.json")
 
     override suspend fun loadSubstitutionPlan(): Result<SubstitutionSet> {
         return if(substitutionsFile.exists()) {
@@ -61,9 +62,14 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
     }
 
     override suspend fun storeSubstitutionPlan(value: SubstitutionSet) {
-        return withContext(Dispatchers.IO) {
-            gson.toJson(value, FileWriter(substitutionsFile))
+        withContext(Dispatchers.IO) {
+            FileWriter(substitutionsFile).use { writer -> gson.toJson(value, writer) }
         }
+        /*withContext(Dispatchers.IO) {
+            val gsonStr = gson.toJson(value)
+            Log.d("GSApp", gsonStr)
+            gson.toJson(value, FileWriter(substitutionsFile))
+        }*/
     }
 
     override suspend fun loadSubjects(): Result<List<Subject>> {
@@ -84,8 +90,8 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
     }
 
     override suspend fun storeSubjects(value: List<Subject>) {
-        return withContext(Dispatchers.IO) {
-            gson.toJson(value, FileWriter(subjectsFile))
+        withContext(Dispatchers.IO) {
+            FileWriter(subjectsFile).use { writer -> gson.toJson(value, writer) }
         }
     }
 
@@ -107,8 +113,8 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
     }
 
     override suspend fun storeTeachers(value: List<Teacher>) {
-        return withContext(Dispatchers.IO) {
-            gson.toJson(value, FileWriter(teachersFile))
+        withContext(Dispatchers.IO) {
+            FileWriter(teachersFile).use { writer -> gson.toJson(value, writer) }
         }
     }
 
@@ -130,8 +136,8 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
     }
 
     override suspend fun storeFoodPlan(value: List<FoodOffer>) {
-        return withContext(Dispatchers.IO) {
-            gson.toJson(value, FileWriter(foodplanFile))
+        withContext(Dispatchers.IO) {
+            FileWriter(foodplanFile).use { writer -> gson.toJson(value, writer) }
         }
     }
 
@@ -153,8 +159,8 @@ class JsonDataSource(private var context: Context) : LocalDataSource {
     }
 
     override suspend fun storeAdditives(value: List<Additive>) {
-        return withContext(Dispatchers.IO) {
-            gson.toJson(value, FileWriter(additivesFile))
+        withContext(Dispatchers.IO) {
+            FileWriter(additivesFile).use { writer -> gson.toJson(value, writer) }
         }
     }
 }

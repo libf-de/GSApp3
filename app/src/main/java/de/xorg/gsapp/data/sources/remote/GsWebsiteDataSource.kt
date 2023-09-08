@@ -19,16 +19,21 @@
 package de.xorg.gsapp.data.sources.remote
 
 import android.util.Log
+import androidx.compose.ui.graphics.Color
 import de.xorg.gsapp.data.exceptions.HolidayException
 import de.xorg.gsapp.data.exceptions.NoEntriesException
 import de.xorg.gsapp.data.model.Additive
 import de.xorg.gsapp.data.model.Food
 import de.xorg.gsapp.data.model.FoodOffer
-import de.xorg.gsapp.data.model.FoodOfferSet
 import de.xorg.gsapp.data.model.Subject
 import de.xorg.gsapp.data.model.Substitution
 import de.xorg.gsapp.data.model.SubstitutionSet
 import de.xorg.gsapp.data.model.Teacher
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.get
+import io.ktor.client.statement.HttpResponse
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
@@ -229,6 +234,7 @@ class GsWebsiteDataSource : RemoteDataSource {
                 }
             }
         } catch(ex: Exception) {
+            ex.printStackTrace()
             return Result.failure(ex)
         }
         return  if(substitutions.isEmpty()) Result.failure(NoEntriesException())
@@ -274,88 +280,110 @@ class GsWebsiteDataSource : RemoteDataSource {
     }
 
     override suspend fun loadSubstitutionPlan(): Result<SubstitutionSet> {
-        val b: OkHttpClient.Builder = OkHttpClient.Builder()
-        b.readTimeout(20, TimeUnit.SECONDS)
-        b.connectTimeout(20, TimeUnit.SECONDS)
-        val client: OkHttpClient = b.build()
-        System.setProperty("http.keepAlive", "false")
-        val request: Request = Request.Builder()
-            .url("https://www.gymnasium-sonneberg.de/Informationen/vp.php5")
-            .build()
-        client.newCall(request).execute().use { response ->
-            if(!response.isSuccessful) return Result.failure(IOException("Unexpected code $response"))
+        val client = HttpClient(CIO)
+        val response: HttpResponse = client.get("https://www.gymnasium-sonneberg.de/Informationen/vp.php5")
 
+        if(response.status.value !in 200..299) return Result.failure(IOException("Unexpected code $response"))
+
+        return try {
+            parseResponse(response.body())
+            //return parseResponse(response.body!!.string());
+        }catch(ex: Exception){
+            ex.printStackTrace()
             try {
-                return parseResponse(response.body!!.string());
-            }catch(ex: Exception){
-                try {
-                    return fallbackLoad(response.body!!.string())
-                }catch(ex2: Exception) {
-                    return Result.failure(ex);
-                }
+                fallbackLoad(response.body())
+            }catch(ex2: Exception) {
+                ex2.printStackTrace()
+                Result.failure(ex);
             }
         }
     }
 
-    private fun loadTeachersPage(pageNr: Int?, parseMore: Boolean): Result<List<Teacher>> {
-        val b: OkHttpClient.Builder = OkHttpClient.Builder()
-        b.readTimeout(20, TimeUnit.SECONDS)
-        b.connectTimeout(20, TimeUnit.SECONDS)
-        val client: OkHttpClient = b.build()
-        System.setProperty("http.keepAlive", "false")
-        val request: Request = Request.Builder()
-            .url("https://www.gymnasium-sonneberg.de/Kontakt/Sprech/ausgeben.php5?seite=" +
-                    (pageNr ?: 1).toString() )
-            .build()
-        client.newCall(request).execute().use { response ->
-            if(!response.isSuccessful) return Result.failure(IOException("Unexpected code $response"))
+    private suspend fun loadTeachersPage(pageNr: Int?, parseMore: Boolean): Result<List<Teacher>> {
+        val client = HttpClient(CIO)
+        val response: HttpResponse = client.get("https://www.gymnasium-sonneberg.de/Kontakt/Sprech/ausgeben.php5?seite=" +
+                (pageNr ?: 1).toString() )
 
-            val teachers = ArrayList<Teacher>()
-            val doc: Document
+        if(response.status.value !in 200..299)
+            return Result.failure(IOException("Unexpected code $response"))
 
+        val teachers = ArrayList<Teacher>()
+        val doc: Document
+
+        try {
+            val bodyStr: String = response.body()
+            doc = Jsoup.parse(bodyStr)
+            val tableElements: Elements = doc.select(
+                "table.eAusgeben > tbody > tr:not(:first-child,:last-child)")
+
+            for (tableRow: Element in tableElements) {
+                val teacherData = tableRow.selectFirst("td.eEintragGrau,td.eEintragWeiss")!!
+                if(!teacherData.html().contains("<br>")) continue
+                val teacherName = teacherData.html().split("<br>")[0]
+                val teacherShort = teacherData.html().substringAfter("Kürzel:").trim()
+                teachers.add(
+                    Teacher(
+                        shortName = teacherShort,
+                        longName = teacherName)
+                )
+            }
+        } catch(ex: Exception) {
+            ex.printStackTrace()
+            return Result.failure(ex)
+        }
+
+        if(parseMore) {
             try {
-                doc = Jsoup.parse(response.body!!.string())
-                val tableElements: Elements = doc.select(
-                    "table[class=\"eAusgeben\"] > tbody > tr:not(:first-child,:last-child)")
+                val lastPage = doc.selectFirst(
+                    "table[class=\"eAusgeben\"] > tbody > tr:last-child > td > a:nth-last-child(2)"
+                )!!
+                    .attr("href").substringAfter("seite=").toInt()
 
-                for (tableRow: Element in tableElements) {
-                    val teacherData = tableRow.selectFirst("td[class=\"eEintragGrau\"]")!!
-                    if(!teacherData.html().contains("<br>")) continue
-                    val teacherName = teacherData.html().split("<br>")[0]
-                    val teacherShort = teacherData.html().substringAfter("Kürzel:").trim()
-                    teachers.add(
-                        Teacher(
-                            shortName = teacherShort,
-                            longName = teacherName)
+                for (page: Int in 2..lastPage) {
+                    teachers.addAll(
+                        loadTeachersPage(page, false).getOrElse { emptyList() }
                     )
                 }
-            } catch(ex: Exception) {
-                return Result.failure(ex)
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+                return Result.failure(ex) //TODO: "fail" silently!
             }
-
-            if(parseMore) {
-                try {
-                    val lastPage = doc.selectFirst(
-                        "table[class=\"eAusgeben\"] > tbody > tr:last-child > td > a:nth-last-child(2)"
-                    )!!
-                        .attr("href").substringAfter("seite=").toInt()
-
-                    for (page: Int in 2..lastPage) {
-                        teachers.addAll(
-                            loadTeachersPage(page, false).getOrElse { emptyList() }
-                        )
-                    }
-                } catch (ex: Exception) {
-                    return Result.failure(ex) //TODO: "fail" silently!
-                }
-            }
-
-            return Result.success(teachers)
         }
+
+        return Result.success(teachers)
     }
 
     override suspend fun loadSubjects(): Result<List<Subject>> {
-        TODO("Not yet implemented")
+        return Result.success(
+            listOf(
+                Subject("De", "Deutsch", Color(0xFF2196F3)),
+                Subject("Ma", "Mathe", Color(0xFFF44336)),
+                Subject("Mu", "Musik", Color(0xFF9E9E9E)),
+                Subject("Ku", "Kunst", Color(0xFF673AB7)),
+                Subject("Gg", "Geografie", Color(0xFF9E9D24)),
+                Subject("Re", "Religion", Color(0xFFFF8F00)),
+                Subject("Et", "Ethik", Color(0xFFFF8F00)),
+                Subject("MNT", "MNT", Color(0xFF4CAF50)),
+                Subject("En", "Englisch", Color(0xFFFF9800)),
+                Subject("Sp", "Sport", Color(0xFF607D8B)),
+                Subject("SpJ", "Sport Jungen", Color(0xFF607D8B)),
+                Subject("SpM", "Sport Mädchen", Color(0xFF607D8B)),
+                Subject("Bi", "Biologie", Color(0xFF4CAF50)),
+                Subject("Ch", "Chemie", Color(0xFFE91E63)),
+                Subject("Ph", "Physik", Color(0xFF009688)),
+                Subject("Sk", "Sozialkunde", Color(0xFF795548)),
+                Subject("If", "Informatik", Color(0xFF03A9F4)),
+                Subject("WR", "Wirtschaft/Recht", Color(0xFFFF5722)),
+                Subject("Ge", "Geschichte", Color(0xFF9C27B0)),
+                Subject("Fr", "Französisch", Color(0xFF558B2F)),
+                Subject("Ru", "Russisch", Color(0xFF558B2F)),
+                Subject("La", "Latein", Color(0xFF558B2F)),
+                Subject("Gewi", "Gesellschaftsw.", Color(0xFF795548)),
+                Subject("Dg", "Darstellen/Gestalten", Color(0xFF795548)),
+                Subject("Sn", "Spanisch", Color(0xFF558B2F)),
+                Subject("&nbsp;", "keine Angabe", Color.DarkGray)
+            )
+        )
     }
 
     override suspend fun loadTeachers(): Result<List<Teacher>> {
@@ -365,98 +393,84 @@ class GsWebsiteDataSource : RemoteDataSource {
     override suspend fun loadFoodPlan(): Result<List<FoodOffer>> {
         val foods = mutableMapOf<String, MutableList<Food>>()
         try {
-            val b: OkHttpClient.Builder = OkHttpClient.Builder()
-            b.readTimeout(20, TimeUnit.SECONDS)
-            b.connectTimeout(20, TimeUnit.SECONDS)
-            val client: OkHttpClient = b.build()
-            System.setProperty("http.keepAlive", "false")
-            val request: Request = Request.Builder()
-                .url("https://www.gymnasium-sonneberg.de/Informationen/vp.php5")
-                .build()
-            client.newCall(request).execute().use { response ->
-                if(!response.isSuccessful) return Result.failure(IOException("Unexpected code $response"))
+            val client = HttpClient(CIO)
+            val response: HttpResponse = client.get("https://ktor.io/")
 
-                try {
-                    val doc = Jsoup.parse(response.body!!.string())
-                    doc.select("sup").remove()
-                    val currentDates = doc.select("button#time-selector-dropdown")
-                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                    val kw = currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[0].replace("[\\D]".toRegex(), "").toInt()
-                    if (kw < 0 || kw > 53) {
-                        Log.w(TAG, "Parsed KW \"$kw\" is probably invalid")
-                    }
-                    Log.d(TAG, "NewEP::KW=$kw")
-                    val dateFrom: Date = sdf.parse(
-                        currentDates.text()
-                            .split("\\|\\|".toRegex())
-                            .dropLastWhile { it.isEmpty() }
-                            .toTypedArray()[1]
-                            .split("-".toRegex())
-                            .dropLastWhile { it.isEmpty() }
-                            .toTypedArray()[0]
-                            .trim { it <= ' ' } +
-                                currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
+            if(response.status.value !in 200..299) return Result.failure(IOException("Unexpected code $response"))
+
+            try {
+                val bodyStr: String = response.body()
+                val doc = Jsoup.parse(bodyStr)
+                doc.select("sup").remove()
+                val currentDates = doc.select("button#time-selector-dropdown")
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                val kw = currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
+                    .toTypedArray()[0].replace("[\\D]".toRegex(), "").toInt()
+                if (kw < 0 || kw > 53) {
+                    Log.w(TAG, "Parsed KW \"$kw\" is probably invalid")
+                }
+                Log.d(TAG, "NewEP::KW=$kw")
+                val dateFrom: Date = sdf.parse(
+                    currentDates.text()
+                        .split("\\|\\|".toRegex())
+                        .dropLastWhile { it.isEmpty() }
+                        .toTypedArray()[1]
+                        .split("-".toRegex())
+                        .dropLastWhile { it.isEmpty() }
+                        .toTypedArray()[0]
+                        .trim { it <= ' ' } +
+                            currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
                                 .toTypedArray()[1].split("\\.".toRegex()).dropLastWhile { it.isEmpty() }
                                 .toTypedArray().last()
-                        )!!
+                )!!
 
-                    val dateTill: Date = sdf.parse(
-                            currentDates.text()
-                            .split("\\|\\|".toRegex())
-                            .dropLastWhile { it.isEmpty() }
-                            .toTypedArray()[1]
-                            .split("-".toRegex())
-                            .dropLastWhile { it.isEmpty() }
-                            .toTypedArray()[1]
-                            .trim { it <= ' ' }
-                        )!!
+                val dateTill: Date = sdf.parse(
+                    currentDates.text()
+                        .split("\\|\\|".toRegex())
+                        .dropLastWhile { it.isEmpty() }
+                        .toTypedArray()[1]
+                        .split("-".toRegex())
+                        .dropLastWhile { it.isEmpty() }
+                        .toTypedArray()[1]
+                        .trim { it <= ' ' }
+                )!!
 
-                    val tableElements = doc.select("table#menu-table_KW")
+                val tableElements = doc.select("table#menu-table_KW")
 
-                    for (mealNr in arrayOf(1,2,3,7)) {
-                        for(meal in tableElements.select("td[mealId=0$mealNr]")) {
-                            val mealDate = meal.attr("day")
-                            val mealName = meal.selectFirst("span[id=mealtext]")!!.text()
-                            val mealAdditives = meal.selectFirst("sub")!!
-                                .text()
-                                .replace(" ", "")
-                                .split(",")
-                                .toList()
-                            if(!foods.containsKey(mealDate)) foods[mealDate] = mutableListOf()
-                            foods[mealDate]!!.add(
-                                Food(
-                                    num = mealNr,
-                                    name = mealName,
-                                    additives = mealAdditives
-                                ))
-                        }
+                for (mealNr in arrayOf(1,2,3,7)) {
+                    for(meal in tableElements.select("td[mealId=0$mealNr]")) {
+                        val mealDate = meal.attr("day")
+                        val mealName = meal.selectFirst("span[id=mealtext]")!!.text()
+                        val mealAdditives = meal.selectFirst("sub")!!
+                            .text()
+                            .replace(" ", "")
+                            .split(",")
+                            .toList()
+                        if(!foods.containsKey(mealDate)) foods[mealDate] = mutableListOf()
+                        foods[mealDate]!!.add(
+                            Food(
+                                num = mealNr,
+                                name = mealName,
+                                additives = mealAdditives
+                            ))
                     }
-
-
-                    return Result.success(
-                        foods.entries.map {
-                            FoodOffer(
-                                dataFromDate=dateFrom,
-                                dataTillDate=dateTill,
-                                date=sdf.parse(it.key),
-                                foods=it.value
-                            )
-                        }
-                    )
-                    /*return Result.success(FoodOfferSet(
-                        fromDate=sdf.parse(dateFrom)!!,
-                        tillDate=sdf.parse(dateTill)!!,
-                        foodOfferings=foods.mapKeys { sdf.parse(it.key)!! }
-                    ) )*/
-                } catch(ex: Exception) {
-                    return Result.failure(ex);
                 }
+
+                return Result.success(
+                    foods.entries.map {
+                        FoodOffer(
+                            dataFromDate=dateFrom,
+                            dataTillDate=dateTill,
+                            date= sdf.parse(it.key)!!,
+                            foods=it.value
+                        )
+                    }
+                )
+            } catch(ex: Exception) {
+                ex.printStackTrace()
+                return Result.failure(ex);
             }
-
-
-
-        } catch (e: java.lang.Exception) {
+        } catch (e: Exception) {
             Log.e(TAG, "Konnte Serverantwort nicht verarbeiten: ${e.message}")
             e.printStackTrace()
             return Result.failure(e)
