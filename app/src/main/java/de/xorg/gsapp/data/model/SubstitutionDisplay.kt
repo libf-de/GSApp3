@@ -19,6 +19,7 @@
 package de.xorg.gsapp.data.model
 
 data class SubstitutionDisplay(
+    val type: SubstitutionType,
     val klass: String,
     val lessonNr: String,
     val origSubject: Subject,
@@ -32,6 +33,17 @@ data class SubstitutionDisplay(
                 origSubject: Subject,
                 substTeacher: Teacher,
                 substSubject: Subject) : this(
+                    type = if(primitive.notes.lowercase() == "ausfall")
+                        SubstitutionType.CANCELLATION
+                    else if(primitive.notes.lowercase() == "aa"
+                            || primitive.notes.lowercase().startsWith("arbeitsauftr"))
+                        SubstitutionType.WORKORDER
+                    else if(primitive.notes.lowercase() == "raumtausch")
+                        SubstitutionType.ROOMSWAP
+                    else if(primitive.notes.lowercase().startsWith("stillbesch"))
+                        SubstitutionType.BREASTFEED
+                    else
+                        SubstitutionType.NORMAL,
                     klass = primitive.klass,
                     lessonNr = primitive.lessonNr,
                     origSubject = origSubject,

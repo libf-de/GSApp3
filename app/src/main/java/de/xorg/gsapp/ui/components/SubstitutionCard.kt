@@ -52,7 +52,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -60,6 +62,7 @@ import com.google.android.material.color.MaterialColors
 import de.xorg.gsapp.R
 import de.xorg.gsapp.data.model.Subject
 import de.xorg.gsapp.data.model.SubstitutionDisplay
+import de.xorg.gsapp.data.model.SubstitutionType
 import de.xorg.gsapp.data.model.Teacher
 
 @ExperimentalMaterial3Api
@@ -77,8 +80,8 @@ fun SubstitutionCard(
         MaterialTheme.colorScheme.primary.toArgb())
     //val harmonizedColor = value.origSubject.color.toArgb()
 
-    val farbe = MaterialColors.getColorRoles(LocalContext.current, harmonizedColor)
-    //val farbe = MaterialColors.getColorRoles(harmonizedColor, true)
+    //val farbe = MaterialColors.getColorRoles(LocalContext.current, harmonizedColor)
+    val farbe = MaterialColors.getColorRoles(harmonizedColor, false)
     Card(modifier = Modifier
         .padding(horizontal = 16.dp, vertical = 4.dp)
         .height(70.dp),
@@ -108,35 +111,39 @@ fun SubstitutionCard(
             Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxHeight()) {
                 Column(modifier = Modifier.padding(12.dp, 0.dp)) {
                     Text(
-                        text = value.origSubject.longName + " ➜ " + value.substSubject.longName,
+                        text = when {
+                            value.origSubject == value.substSubject
+                                -> value.origSubject.longName
+
+                            value.type == SubstitutionType.WORKORDER
+                                    && value.origSubject == value.substSubject
+                                -> value.origSubject.longName + " Arbeitsauftrag"
+
+                            value.type == SubstitutionType.WORKORDER
+                                    && value.origSubject != value.substSubject
+                                -> value.origSubject.longName + " ➜ " +
+                                    value.substSubject.longName + " Arbeitsauftrag"
+
+                            value.type == SubstitutionType.CANCELLATION
+                                -> value.origSubject.longName + " ➜ Ausfall"
+
+                            value.type == SubstitutionType.BREASTFEED
+                                -> value.origSubject.longName + " ➜ Stillbeschäftigung"
+
+                            else
+                                -> value.origSubject.longName + " ➜ " + value.substSubject.longName
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(4.dp, 0.dp, 0.dp, 0.dp),
                         color = Color(farbe.onAccentContainer)
                     )
                     Row(modifier = Modifier.padding(0.dp, 3.dp, 0.dp, 0.dp)) {
                         Icon(
-                            Icons.Outlined.Person,
-                            contentDescription = "Bla!",
-                            modifier = Modifier
-                                .size(24.dp)
-                                .alignByBaseline(),
-                            tint = Color(farbe.onAccentContainer)
-                        )
-                        Text(
-                            text = value.substTeacher.longName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier
-                                .padding(4.dp, 2.dp, 0.dp, 0.dp)
-                                .width(78.dp)
-                                .alignByBaseline(),
-                            softWrap = false,
-                            color = Color(farbe.onAccentContainer)
-                        )
-                        Icon(
                             Icons.Outlined.LocationOn,
                             contentDescription = "Location",
                             modifier = Modifier
-                                .padding(8.dp, 0.dp, 0.dp, 0.dp)
                                 .size(24.dp)
                                 .alignByBaseline(),
                             tint = Color(farbe.onAccentContainer)
@@ -144,29 +151,58 @@ fun SubstitutionCard(
                         Text(
                             text = value.substRoom,
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if(value.type == SubstitutionType.ROOMSWAP)
+                                            FontWeight.ExtraBold
+                                         else
+                                            MaterialTheme.typography.bodyMedium.fontWeight,
                             modifier = Modifier
-                                .padding(4.dp, 2.dp, 8.dp, 0.dp)
+                                .padding(4.dp, 2.dp, 0.dp, 0.dp)
                                 .alignByBaseline(),
+                            softWrap = false,
                             color = Color(farbe.onAccentContainer)
                         )
+                        if(value.substTeacher.shortName != "##" && value.substTeacher.shortName.isNotEmpty()) {
+                            Icon(
+                                Icons.Outlined.Person,
+                                contentDescription = "Bla!",
+                                modifier = Modifier
+                                    .padding(8.dp, 0.dp, 0.dp, 0.dp)
+                                    .size(24.dp)
+                                    .alignByBaseline(),
+                                tint = Color(farbe.onAccentContainer)
+                            )
+                            Text(
+                                text = value.substTeacher.longName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .padding(4.dp, 2.dp, 8.dp, 0.dp)
+                                    .width(78.dp)
+                                    .alignByBaseline(),
+                                softWrap = false,
+                                color = Color(farbe.onAccentContainer)
+                            )
+                        }
                     }
 
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxSize()) {
-                Divider(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier
-                        .padding(0.dp, 10.dp)
-                        .fillMaxHeight()  //fill the max height
-                        .width(1.dp)
-                )
+            if(value.notes.isNotEmpty()
+                && value.type != SubstitutionType.BREASTFEED
+                && value.type != SubstitutionType.WORKORDER
+                && value.type != SubstitutionType.CANCELLATION) {
+                Row(horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxSize()) {
+                    Divider(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier
+                            .padding(0.dp, 10.dp)
+                            .fillMaxHeight()  //fill the max height
+                            .width(1.dp)
+                    )
 
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if(value.notes.isNotEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(text = value.notes,
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodySmall,
@@ -175,16 +211,9 @@ fun SubstitutionCard(
                                 .padding(8.dp, 13.dp, 15.dp, 12.dp)
                                 .wrapContentSize()
                         )
-                    } else {
-                        Icon(painterResource(R.drawable.smiley),
-                            modifier = Modifier.size(32.dp),
-                            tint = Color(farbe.onAccentContainer),
-                            contentDescription = "face")
                     }
                 }
             }
-
-
         }
     }
 }
@@ -192,8 +221,9 @@ fun SubstitutionCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-fun SubstitutionCardPreview() {
+fun normalNoNotesPreview() {
     val sampleSubDisp = SubstitutionDisplay(
+        type = SubstitutionType.NORMAL,
         klass = "5.3",
         lessonNr = "3",
         origSubject = Subject("En", "Englisch", Color.Red),
@@ -210,8 +240,9 @@ fun SubstitutionCardPreview() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-fun SubstitutionCardPreview2() {
+fun normalWithNotesPreview() {
     val sampleSubDisp = SubstitutionDisplay(
+        type = SubstitutionType.NORMAL,
         klass = "5.3",
         lessonNr = "3",
         origSubject = Subject("Ma", "Mathematik", Color.Blue),
@@ -223,4 +254,73 @@ fun SubstitutionCardPreview2() {
     )
 
     SubstitutionCard(value = sampleSubDisp)
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun cancellationPreview() {
+    SubstitutionCard(value = SubstitutionDisplay(
+        type = SubstitutionType.CANCELLATION,
+        klass = "5.3",
+        lessonNr = "4",
+        origSubject = Subject("Ma", "Mathematik", Color.Red),
+        substTeacher = Teacher("##", "nobody"),
+        substRoom = "D12",
+        substSubject = Subject("##", "nix", Color.Black),
+        notes = "",
+        isNew = false
+    ))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun workorderPreview() {
+    SubstitutionCard(value = SubstitutionDisplay(
+        type = SubstitutionType.WORKORDER,
+        klass = "5.3",
+        lessonNr = "4",
+        origSubject = Subject("Ma", "Mathematik", Color.Red),
+        substTeacher = Teacher("WEL", "Welsch, T."),
+        substRoom = "L01",
+        substSubject = Subject("De", "Deutsch", Color.Blue),
+        notes = "AA",
+        isNew = false
+    ))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun roomswapPreview() {
+    SubstitutionCard(value = SubstitutionDisplay(
+        type = SubstitutionType.ROOMSWAP,
+        klass = "5.3",
+        lessonNr = "4",
+        origSubject = Subject("Ma", "Mathematik", Color.Red),
+        substTeacher = Teacher("WEL", "Welsch, T."),
+        substRoom = "L01",
+        substSubject = Subject("Ma", "Mathematik", Color.Red),
+        notes = "Raumtausch",
+        isNew = false
+    ))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun breastfeedPreview() {
+    SubstitutionCard(value = SubstitutionDisplay(
+        type = SubstitutionType.BREASTFEED,
+        klass = "5.3",
+        lessonNr = "4",
+        origSubject = Subject("Ma", "Mathematik", Color.Red),
+        substTeacher = Teacher("WEL", "Welsch, T."),
+        substRoom = "L01",
+        substSubject = Subject("Ge", "Mathematik", Color.Red),
+        notes = "Stillbesch.",
+        isNew = false
+    ))
 }
