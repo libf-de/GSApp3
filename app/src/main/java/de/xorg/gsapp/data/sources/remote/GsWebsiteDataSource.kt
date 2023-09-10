@@ -37,10 +37,6 @@ import io.ktor.client.statement.HttpResponse
 import it.skrape.core.htmlDocument
 import it.skrape.matchers.toBePresentTimes
 import it.skrape.selects.DocElement
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
-import org.jsoup.select.Elements
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -287,55 +283,60 @@ class GsWebsiteDataSource : RemoteDataSource {
         }
     }
 
-    private suspend fun loadTeachersPage(pageNr: Int?, parseMore: Boolean): Result<List<Teacher>> {
+    private suspend fun parseTeachersNumPages(html: String): Int {
+        return htmlDocument(html) {
+            findFirst("table[class=\"eAusgeben\"] > tbody > tr:last-child > td > a:nth-last-child(2)") {
+                this
+                    .attribute("href")
+                    .substringAfter("seite=")
+                    .toInt()
+            }
+        }
+    }
+
+    private suspend fun parseTeachers(html: String, list: MutableList<Teacher>) {
+        return htmlDocument(html) {
+            findAll("table.eAusgeben > tbody > tr:not(:first-child,:last-child)") {
+                forEach {
+                    it.findFirst("td.eEintragGrau,td.eEintragWeiss") {
+                        if(!this.html.contains("<br>")) return@findFirst
+                        val teacherName = this.html.split("<br>")[0]
+                        val teacherShort = this.html.substringAfter("Kürzel:").trim()
+                        Log.d("teacherBug", "Got *$teacherName* <-> *$teacherShort*")
+                        list.add(
+                            Teacher(
+                                longName = teacherName,
+                                shortName = teacherShort
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun loadTeachers(): Result<List<Teacher>> {
         val client = HttpClient(CIO)
-        val response: HttpResponse = client.get("https://www.gymnasium-sonneberg.de/Kontakt/Sprech/ausgeben.php5?seite=" +
-                (pageNr ?: 1).toString() )
+        val response: HttpResponse = client.get(
+            urlString = "https://www.gymnasium-sonneberg.de/Kontakt/Sprech/ausgeben.php5?seite=1"
+        )
 
         if(response.status.value !in 200..299)
             return Result.failure(IOException("Unexpected code $response"))
 
         val teachers = ArrayList<Teacher>()
-        val doc: Document
+        parseTeachers(response.body(), teachers)
 
-        try {
-            val bodyStr: String = response.body()
-            doc = Jsoup.parse(bodyStr)
-            val tableElements: Elements = doc.select(
-                "table.eAusgeben > tbody > tr:not(:first-child,:last-child)")
+        for (page: Int in 2..parseTeachersNumPages(response.body())) {
+            val nextResponse: HttpResponse = client.get(
+                urlString = "https://www.gymnasium-sonneberg.de/Kontakt/Sprech/ausgeben.php5?seite="
+                        + page.toString()
+            )
 
-            for (tableRow: Element in tableElements) {
-                val teacherData = tableRow.selectFirst("td.eEintragGrau,td.eEintragWeiss")!!
-                if(!teacherData.html().contains("<br>")) continue
-                val teacherName = teacherData.html().split("<br>")[0]
-                val teacherShort = teacherData.html().substringAfter("Kürzel:").trim()
-                teachers.add(
-                    Teacher(
-                        shortName = teacherShort,
-                        longName = teacherName)
-                )
-            }
-        } catch(ex: Exception) {
-            ex.printStackTrace()
-            return Result.failure(ex)
-        }
+            if(nextResponse.status.value !in 200..299)
+                return Result.failure(IOException("Unexpected code $nextResponse"))
 
-        if(parseMore) {
-            try {
-                val lastPage = doc.selectFirst(
-                    "table[class=\"eAusgeben\"] > tbody > tr:last-child > td > a:nth-last-child(2)"
-                )!!
-                    .attr("href").substringAfter("seite=").toInt()
-
-                for (page: Int in 2..lastPage) {
-                    teachers.addAll(
-                        loadTeachersPage(page, false).getOrElse { emptyList() }
-                    )
-                }
-            } catch (ex: Exception) {
-                ex.printStackTrace()
-                return Result.failure(ex) //TODO: "fail" silently!
-            }
+            parseTeachers(nextResponse.body(), teachers)
         }
 
         return Result.success(teachers)
@@ -374,89 +375,92 @@ class GsWebsiteDataSource : RemoteDataSource {
         )
     }
 
-    override suspend fun loadTeachers(): Result<List<Teacher>> {
-        return loadTeachersPage(1, true)
-    }
-
     override suspend fun loadFoodPlan(): Result<List<FoodOffer>> {
         val foods = mutableMapOf<String, MutableList<Food>>()
         try {
             val client = HttpClient(CIO)
-            val response: HttpResponse = client.get("https://ktor.io/")
+            val response: HttpResponse = client.get("https://schulkueche-bestellung.de/de/menu/14")
 
             if(response.status.value !in 200..299) return Result.failure(IOException("Unexpected code $response"))
 
-            try {
-                val bodyStr: String = response.body()
-                val doc = Jsoup.parse(bodyStr)
-                doc.select("sup").remove()
-                val currentDates = doc.select("button#time-selector-dropdown")
-                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                val kw = currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
-                    .toTypedArray()[0].replace("[\\D]".toRegex(), "").toInt()
-                if (kw < 0 || kw > 53) {
-                    Log.w(TAG, "Parsed KW \"$kw\" is probably invalid")
+            val rspBody: String = response.body()
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+            return htmlDocument(rspBody) {
+                var kw = 0 //TODO: Remove or implement
+                var dateFrom = Date()
+                var dateTo = Date()
+                findFirst("button#time-selector-dropdown") {
+                    kw = this.text.split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
+                        .toTypedArray()[0].replace("\\D".toRegex(), "").toInt()
+                    dateFrom = sdf.parse(
+                        this.text
+                            .split("\\|\\|".toRegex())
+                            .dropLastWhile { it.isEmpty() }
+                            .toTypedArray()[1]
+                            .split("-".toRegex())
+                            .dropLastWhile { it.isEmpty() }
+                            .toTypedArray()[0]
+                            .trim { it <= ' ' } +
+                                this.text
+                                    .split("\\|\\|".toRegex())
+                                    .dropLastWhile { it.isEmpty() }
+                                    .toTypedArray()[1]
+                                        .split("\\.".toRegex())
+                                        .dropLastWhile { it.isEmpty() }
+                                        .toTypedArray()
+                                        .last()
+                    ) ?: dateFrom
+                    dateTo = sdf.parse(
+                        this.text
+                            .split("\\|\\|".toRegex())
+                            .dropLastWhile { it.isEmpty() }
+                            .toTypedArray()[1]
+                                .split("-".toRegex())
+                                .dropLastWhile { it.isEmpty() }
+                                .toTypedArray()[1]
+                                    .trim { it <= ' ' }
+                    ) ?: dateTo
                 }
-                Log.d(TAG, "NewEP::KW=$kw")
-                val dateFrom: Date = sdf.parse(
-                    currentDates.text()
-                        .split("\\|\\|".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[1]
-                        .split("-".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[0]
-                        .trim { it <= ' ' } +
-                            currentDates.text().split("\\|\\|".toRegex()).dropLastWhile { it.isEmpty() }
-                                .toTypedArray()[1].split("\\.".toRegex()).dropLastWhile { it.isEmpty() }
-                                .toTypedArray().last()
-                )!!
 
-                val dateTill: Date = sdf.parse(
-                    currentDates.text()
-                        .split("\\|\\|".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[1]
-                        .split("-".toRegex())
-                        .dropLastWhile { it.isEmpty() }
-                        .toTypedArray()[1]
-                        .trim { it <= ' ' }
-                )!!
+                findAll("table#menu-table_KW td[mealid]") {
+                    forEach { meal ->
+                        val mealDate = meal.attribute("day")
+                        val mealId = meal.attribute("mealid").toInt()
+                        var mealName = ""
+                        var mealAdditives = emptyList<String>()
 
-                val tableElements = doc.select("table#menu-table_KW")
+                        meal.findFirst("span[id=mealtext]") {
+                            if(this.text.isNotEmpty())
+                                mealName = this.text.trim()
+                            else
+                                Log.w("loadFoodPlan", "Got food with empty name, on html: ${meal.html}")
+                        }
 
-                for (mealNr in arrayOf(1,2,3,7)) {
-                    for(meal in tableElements.select("td[mealId=0$mealNr]")) {
-                        val mealDate = meal.attr("day")
-                        val mealName = meal.selectFirst("span[id=mealtext]")!!.text()
-                        val mealAdditives = meal.selectFirst("sub")!!
-                            .text()
-                            .replace(" ", "")
-                            .split(",")
-                            .toList()
+                        meal.findFirst("sub") {
+                            mealAdditives = this.text.trim().split(",").toList()
+                        }
+
                         if(!foods.containsKey(mealDate)) foods[mealDate] = mutableListOf()
                         foods[mealDate]!!.add(
                             Food(
-                                num = mealNr,
+                                num = mealId,
                                 name = mealName,
                                 additives = mealAdditives
                             ))
                     }
                 }
 
-                return Result.success(
+                Result.success(
                     foods.entries.map {
                         FoodOffer(
                             dataFromDate=dateFrom,
-                            dataTillDate=dateTill,
+                            dataTillDate=dateTo,
                             date= sdf.parse(it.key)!!,
                             foods=it.value
                         )
                     }
                 )
-            } catch(ex: Exception) {
-                ex.printStackTrace()
-                return Result.failure(ex);
             }
         } catch (e: Exception) {
             Log.e(TAG, "Konnte Serverantwort nicht verarbeiten: ${e.message}")

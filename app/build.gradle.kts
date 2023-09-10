@@ -19,6 +19,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    kotlin("plugin.serialization") version "1.8.10"
 }
 
 android {
@@ -83,7 +84,6 @@ dependencies {
     implementation("org.kodein.di:kodein-di-framework-compose:7.19.0")
     implementation("org.kodein.di:kodein-di-framework-android-x:7.19.0")
 
-    implementation("org.jsoup:jsoup:1.16.1")
     implementation("it.skrape:skrapeit:1.2.2")
 
     implementation("com.google.code.gson:gson:2.10.1")
