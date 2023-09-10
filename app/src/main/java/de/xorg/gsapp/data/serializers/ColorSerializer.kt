@@ -16,18 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package de.xorg.gsapp.data.model
+package de.xorg.gsapp.data.serializers
 
 import androidx.compose.ui.graphics.Color
-import de.xorg.gsapp.data.serializers.ColorSerializer
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 
-@Serializable
-data class Subject(
-    val shortName: String,
-    val longName: String,
-    @Serializable(ColorSerializer::class)
-    val color: Color
-) {
-    constructor(shortName: String) : this(shortName, shortName, Color.Magenta)
+object ColorSerializer : KSerializer<Color> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Color",
+        PrimitiveKind.LONG)
+
+    override fun serialize(encoder: Encoder, value: Color) = encoder.encodeLong(value.value.toLong())
+
+    override fun deserialize(decoder: Decoder): Color {
+        return Color(decoder.decodeLong())
+    }
 }

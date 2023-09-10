@@ -86,12 +86,13 @@ dependencies {
 
     implementation("it.skrape:skrapeit:1.2.2")
 
-    implementation("com.google.code.gson:gson:2.10.1")
+    //implementation("com.google.code.gson:gson:2.10.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-cio:$ktor_version")
 
-    // For Tabs and Stuff
+    // For Tabs and Stuff !
     implementation("com.google.accompanist:accompanist-pager:0.28.0")
     // If using indicators, also depend on
     implementation("com.google.accompanist:accompanist-pager-indicators:0.28.0")

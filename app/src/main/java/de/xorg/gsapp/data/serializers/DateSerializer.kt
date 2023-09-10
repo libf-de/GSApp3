@@ -16,12 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package de.xorg.gsapp.data.model
+package de.xorg.gsapp.data.serializers
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.util.Date
 
-data class FoodOfferSet(
-    val fromDate: Date,
-    val tillDate: Date,
-    val foodOfferings: Map<Date, List<Food>>
-)
+object DateSerializer : KSerializer<Date> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Date", PrimitiveKind.LONG)
+
+    override fun serialize(encoder: Encoder, value: Date) = encoder.encodeLong(value.time)
+
+    override fun deserialize(decoder: Decoder): Date = Date(decoder.decodeLong())
+}

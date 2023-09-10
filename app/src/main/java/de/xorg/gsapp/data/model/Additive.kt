@@ -18,6 +18,9 @@
 
 package de.xorg.gsapp.data.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Additive(
     val id: String,
     val name: String

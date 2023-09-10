@@ -18,6 +18,9 @@
 
 package de.xorg.gsapp.data.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class SubstitutionDisplay(
     val type: SubstitutionType,
     val klass: String,

@@ -18,9 +18,6 @@
 
 package de.xorg.gsapp.data.sources.local
 
-import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import de.xorg.gsapp.data.cache.CacheManager
 import de.xorg.gsapp.data.model.Additive
 import de.xorg.gsapp.data.model.FoodOffer
@@ -29,15 +26,14 @@ import de.xorg.gsapp.data.model.SubstitutionSet
 import de.xorg.gsapp.data.model.Teacher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileNotFoundException
-import java.io.FileReader
-import java.io.FileWriter
-import java.io.IOException
+import java.nio.charset.Charset
 
 
-class JsonDataSource(private val cacheManager: CacheManager) : LocalDataSource {
-    private var gson = Gson()
+class JsonDataSource(cacheManager: CacheManager) : LocalDataSource {
     private var substitutionsFile = File(cacheManager.getCacheDirectory(), "substitutions.json")
     private var subjectsFile = File(cacheManager.getCacheDirectory(), "subjects.json")
     private var teachersFile = File(cacheManager.getCacheDirectory(), "teachers.json")
@@ -47,12 +43,11 @@ class JsonDataSource(private val cacheManager: CacheManager) : LocalDataSource {
     override suspend fun loadSubstitutionPlan(): Result<SubstitutionSet> {
         return if(substitutionsFile.exists()) {
             try {
-                Result.success(withContext(Dispatchers.IO) {
-                    gson.fromJson(
-                        FileReader(substitutionsFile),
-                        object : TypeToken<SubstitutionSet>() {}.type
-                    )
-                })
+                Result.success(
+                    Json.decodeFromString(withContext(Dispatchers.IO) {
+                        substitutionsFile.readText(Charset.forName("UTF-8"))
+                    })
+                )
             } catch (ex: Exception) {
                 Result.failure(ex)
             }
@@ -62,25 +57,20 @@ class JsonDataSource(private val cacheManager: CacheManager) : LocalDataSource {
     }
 
     override suspend fun storeSubstitutionPlan(value: SubstitutionSet) {
+        val jsonString = Json.encodeToString(value)
         withContext(Dispatchers.IO) {
-            FileWriter(substitutionsFile).use { writer -> gson.toJson(value, writer) }
+            substitutionsFile.writeText(jsonString, Charset.forName("UTF-8"))
         }
-        /*withContext(Dispatchers.IO) {
-            val gsonStr = gson.toJson(value)
-            Log.d("GSApp", gsonStr)
-            gson.toJson(value, FileWriter(substitutionsFile))
-        }*/
     }
 
     override suspend fun loadSubjects(): Result<List<Subject>> {
         return if(subjectsFile.exists()) {
             try {
-                Result.success(withContext(Dispatchers.IO) {
-                    gson.fromJson(
-                        FileReader(subjectsFile),
-                        object : TypeToken<List<Subject>>() {}.type
-                    )
-                })
+                Result.success(
+                    Json.decodeFromString(withContext(Dispatchers.IO) {
+                        subjectsFile.readText(Charset.forName("UTF-8"))
+                    })
+                )
             } catch (ex: Exception) {
                 Result.failure(ex)
             }
@@ -90,20 +80,20 @@ class JsonDataSource(private val cacheManager: CacheManager) : LocalDataSource {
     }
 
     override suspend fun storeSubjects(value: List<Subject>) {
+        val jsonString = Json.encodeToString(value)
         withContext(Dispatchers.IO) {
-            FileWriter(subjectsFile).use { writer -> gson.toJson(value, writer) }
+            subjectsFile.writeText(jsonString, Charset.forName("UTF-8"))
         }
     }
 
     override suspend fun loadTeachers(): Result<List<Teacher>> {
         return if(teachersFile.exists()) {
             try {
-                Result.success(withContext(Dispatchers.IO) {
-                    gson.fromJson(
-                        FileReader(teachersFile),
-                        object : TypeToken<List<Teacher>>() {}.type
-                    )
-                })
+                Result.success(
+                    Json.decodeFromString(withContext(Dispatchers.IO) {
+                        teachersFile.readText(Charset.forName("UTF-8"))
+                    })
+                )
             } catch (ex: Exception) {
                 Result.failure(ex)
             }
@@ -113,20 +103,20 @@ class JsonDataSource(private val cacheManager: CacheManager) : LocalDataSource {
     }
 
     override suspend fun storeTeachers(value: List<Teacher>) {
+        val jsonString = Json.encodeToString(value)
         withContext(Dispatchers.IO) {
-            FileWriter(teachersFile).use { writer -> gson.toJson(value, writer) }
+            teachersFile.writeText(jsonString, Charset.forName("UTF-8"))
         }
     }
 
     override suspend fun loadFoodPlan(): Result<List<FoodOffer>> {
         return if(foodplanFile.exists()) {
             try {
-                Result.success(withContext(Dispatchers.IO) {
-                    gson.fromJson(
-                        FileReader(foodplanFile),
-                        object : TypeToken<List<FoodOffer>>() {}.type
-                    )
-                })
+                Result.success(
+                    Json.decodeFromString(withContext(Dispatchers.IO) {
+                        foodplanFile.readText(Charset.forName("UTF-8"))
+                    })
+                )
             } catch (ex: Exception) {
                 Result.failure(ex)
             }
@@ -136,31 +126,32 @@ class JsonDataSource(private val cacheManager: CacheManager) : LocalDataSource {
     }
 
     override suspend fun storeFoodPlan(value: List<FoodOffer>) {
+        val jsonString = Json.encodeToString(value)
         withContext(Dispatchers.IO) {
-            FileWriter(foodplanFile).use { writer -> gson.toJson(value, writer) }
+            foodplanFile.writeText(jsonString, Charset.forName("UTF-8"))
         }
     }
 
     override suspend fun loadAdditives(): Result<List<Additive>> {
         return if(additivesFile.exists()) {
             try {
-                Result.success(withContext(Dispatchers.IO) {
-                    gson.fromJson(
-                        FileReader(additivesFile),
-                        object : TypeToken<List<Additive>>() {}.type
-                    )
-                })
+                Result.success(
+                    Json.decodeFromString(withContext(Dispatchers.IO) {
+                        additivesFile.readText(Charset.forName("UTF-8"))
+                    })
+                )
             } catch (ex: Exception) {
                 Result.failure(ex)
             }
         } else {
-            Result.failure(FileNotFoundException("substitutions-cache does not exist!"));
+            Result.failure(FileNotFoundException("additives-cache does not exist!"));
         }
     }
 
     override suspend fun storeAdditives(value: List<Additive>) {
+        val jsonString = Json.encodeToString(value)
         withContext(Dispatchers.IO) {
-            FileWriter(additivesFile).use { writer -> gson.toJson(value, writer) }
+            additivesFile.writeText(jsonString, Charset.forName("UTF-8"))
         }
     }
 }

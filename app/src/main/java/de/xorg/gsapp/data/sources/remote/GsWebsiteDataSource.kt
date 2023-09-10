@@ -302,7 +302,6 @@ class GsWebsiteDataSource : RemoteDataSource {
                         if(!this.html.contains("<br>")) return@findFirst
                         val teacherName = this.html.split("<br>")[0]
                         val teacherShort = this.html.substringAfter("Kürzel:").trim()
-                        Log.d("teacherBug", "Got *$teacherName* <-> *$teacherShort*")
                         list.add(
                             Teacher(
                                 longName = teacherName,

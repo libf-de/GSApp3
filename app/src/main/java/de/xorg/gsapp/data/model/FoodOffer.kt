@@ -18,11 +18,17 @@
 
 package de.xorg.gsapp.data.model
 
+import de.xorg.gsapp.data.serializers.DateSerializer
+import kotlinx.serialization.Serializable
 import java.util.Date
 
+@Serializable
 data class FoodOffer(
+    @Serializable(DateSerializer::class)
     val dataFromDate: Date,
+    @Serializable(DateSerializer::class)
     val dataTillDate: Date,
+    @Serializable(DateSerializer::class)
     val date: Date,
     val foods: List<Food>
 )

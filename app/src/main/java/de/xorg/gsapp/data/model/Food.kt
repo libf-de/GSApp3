@@ -18,6 +18,9 @@
 
 package de.xorg.gsapp.data.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Food(
     val num: Int,
     val name: String,
