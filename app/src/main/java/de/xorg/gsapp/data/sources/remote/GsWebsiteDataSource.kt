@@ -34,8 +34,9 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import it.skrape.core.htmlDocument
+import it.skrape.matchers.toBePresentTimes
+import it.skrape.selects.DocElement
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -44,7 +45,6 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 
 class GsWebsiteDataSource : RemoteDataSource {
@@ -53,79 +53,65 @@ class GsWebsiteDataSource : RemoteDataSource {
 
     @Throws(ArrayIndexOutOfBoundsException::class)
     private fun parseResponse(result: String): Result<SubstitutionSet> {
-        //this.isFiltered = !this.Filter.isEmpty();
-        val substitutions = ArrayList<Substitution>()
-
-        val doc: Document = Jsoup.parse(result)
-        val dateElement: Element = doc.select("td[class*=vpUeberschr]").first()!!
-        val noteElement: Element = doc.select("td[class=vpTextLinks]").first()!!
-        var noteStr: String
-        try {
-            noteStr = if (noteElement.hasText())
-                noteElement.text().replace("Hinweis:", "").trim()
-            else ""
-        } catch (e: java.lang.Exception) {
-            noteStr = ""
-            e.printStackTrace()
-        }
-        val dateText: String = try {
-            if (dateElement.hasText()) dateElement.text()
-            else "(kein Datum)"
-        } catch (e: java.lang.Exception) {
-            "(Kein Datum)"
-        }
-        if (dateText == "Beschilderung beachten!") return Result.failure(HolidayException())
-
-        var substElements: Elements = doc.select("tr[id=Svertretungen], tr[id=Svertretungen] ~ tr")
-        if (substElements.size < 1) {
-            Log.w(TAG, "ParseResponse: No entries found, trying fallback method...")
-
-            try {
-                val parent: Element = doc.select("td[class*=vpTextZentriert]").first()!!.parent()!!
-                substElements = doc.select((parent.cssSelector() + ", " + parent.cssSelector()) + " ~ tr")
-            } catch (npe: NullPointerException) {
-                Log.e(TAG, "ParseResponse: Fallback failed, html is shown below: ")
-                Log.e(TAG, result)
-                return fallbackLoad(result)
-                //return Result.failure(NullPointerException("Response could not be parsed (NPE): " + npe.message));
-            }
-        }
-        Log.d(TAG, "vpEnts size is " + substElements.size.toString())
-        val rowIterator: Iterator<*>
-        var curRowChilds: Elements
-        var data: Array<String>
-        var isNew: Boolean
-        var colNum: Int
-        var colIterator: Iterator<*>
-
-        rowIterator = substElements.iterator()
-        while (rowIterator.hasNext()) {
-            curRowChilds = (rowIterator.next() as Element).children()
-            data = arrayOf("", "", "", "", "", "", "")
-            isNew = false
-            colNum = 0
-            colIterator = curRowChilds.iterator()
-            while (colIterator.hasNext() && colNum < 7) {
-                data[colNum] = (colIterator.next() as Element).text().trim()
-                colNum++
-            }
-            if (curRowChilds.html().contains("<strong>")) {
-                isNew = true
+        return htmlDocument(result) {
+            var dateText = "(kein Datum)"
+            findFirst("td[class*=vpUeberschr]") {
+                if(this.text.isNotEmpty())
+                    dateText = this.text.trim()
             }
 
-            substitutions.add(Substitution(
-                klass = data[0],
-                lessonNr = data[1],
-                origSubject = data[2],
-                substTeacher = data[3],
-                substRoom = data[4],
-                substSubject = data[5],
-                notes = data[6],
-                isNew = isNew
+            if(dateText == "Beschilderung beachten!") Result.failure<SubstitutionSet>(HolidayException())
+
+            var noteText: String = ""
+            findFirst("td[class=vpTextLinks]") {
+                if(this.text.isNotEmpty())
+                    noteText = this.text.replace("Hinweis:", "").trim()
+            }
+
+            val substitutions = ArrayList<Substitution>()
+            var colNum: Int
+            var data: Array<String>
+            var isNew: Boolean
+
+            val substElements: List<DocElement>
+                = this.findAll("tr[id=Svertretungen], tr[id=Svertretungen] ~ tr").ifEmpty {
+                    val parent = this.findFirst("td[class*=vpTextZentriert]").parent
+                    this.findAll("${parent.ownCssSelector}, ${parent.ownCssSelector} ~ tr")
+            }
+
+            substElements.forEach { currentRow ->
+                colNum = 0
+                data = arrayOf("", "", "", "", "", "", "")
+                isNew = currentRow.html.contains("<strong>")
+
+                currentRow.children {
+                    toBePresentTimes(7)
+                    forEach {
+                        data[colNum] = it.text.trim()
+                        colNum++
+                    }
+                }
+
+                substitutions.add(
+                    Substitution(
+                        klass = data[0],
+                        lessonNr = data[1],
+                        origSubject = data[2],
+                        substTeacher = data[3],
+                        substRoom = data[4],
+                        substSubject = data[5],
+                        notes = data[6],
+                        isNew = isNew
+                    ))
+            }
+
+            Result.success(SubstitutionSet(
+                date = dateText,
+                notes = noteText,
+                substitutions = substitutions
             ))
-        }
 
-        return Result.success(SubstitutionSet(dateText, noteStr, substitutions))
+        }
     }
 
     private fun fallbackLoad(result: String): Result<SubstitutionSet> {
@@ -287,15 +273,17 @@ class GsWebsiteDataSource : RemoteDataSource {
 
         return try {
             parseResponse(response.body())
+            //parseResponse(response.body())
             //return parseResponse(response.body!!.string());
         }catch(ex: Exception){
             ex.printStackTrace()
-            try {
+            Result.failure(ex)
+            /*try {
                 fallbackLoad(response.body())
             }catch(ex2: Exception) {
                 ex2.printStackTrace()
                 Result.failure(ex);
-            }
+            }*/
         }
     }
 

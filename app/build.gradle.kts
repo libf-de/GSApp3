@@ -63,6 +63,8 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "mozilla/public-suffix-list.txt"
         }
     }
 }
@@ -82,13 +84,12 @@ dependencies {
     implementation("org.kodein.di:kodein-di-framework-android-x:7.19.0")
 
     implementation("org.jsoup:jsoup:1.16.1")
+    implementation("it.skrape:skrapeit:1.2.2")
+
     implementation("com.google.code.gson:gson:2.10.1")
 
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-cio:$ktor_version")
-
-    implementation("com.squareup.okhttp3:okhttp:4.10.0")
-
 
     // For Tabs and Stuff
     implementation("com.google.accompanist:accompanist-pager:0.28.0")
